@@ -267,3 +267,42 @@ func (sm *ShardedMap) Clear() {
 		sm.shards[i].mu.Unlock()
 	}
 }
+
+// GetShardForIndex 获取指定索引的分片（用于遍历所有分片）
+//
+// 参数说明：
+//   - index: 分片索引（0-255）
+//
+// 返回值：
+//   - *mapShard: 分片对象，如果索引无效则返回 nil
+//
+// 注意事项：
+//   - 该方法主要用于内部实现（如 KEYS 命令）
+//   - 调用方需要自行处理并发安全
+func (sm *ShardedMap) GetShardForIndex(index int) *mapShard {
+	if index < 0 || index >= DefaultShardCount {
+		return nil
+	}
+	return sm.shards[index]
+}
+
+// GetAllKeys 获取分片中的所有键名
+//
+// 返回值：
+//   - []string: 键名列表
+//
+// 注意事项：
+//   - 该方法是并发安全的
+//   - O(n) 时间复杂度，应避免频繁调用
+//   - 返回的键可能包含已过期但未清理的键
+func (ms *mapShard) GetAllKeys() []string {
+	ms.mu.RLock()
+	defer ms.mu.RUnlock()
+
+	keys := make([]string, 0, len(ms.items))
+	for key := range ms.items {
+		keys = append(keys, key)
+	}
+
+	return keys
+}

@@ -110,6 +110,14 @@ func (h *CommandHandler) HandleCommand(value *resp.Value) *resp.Value {
 		return h.handleTTL(args)
 	case "EXPIRE":
 		return h.handleExpire(args)
+	case "DBSIZE":
+		return h.handleDBSize(args)
+	case "FLUSHALL":
+		return h.handleFlushAll(args)
+	case "KEYS":
+		return h.handleKeys(args)
+	case "INFO":
+		return h.handleInfo(args)
 	default:
 		return &resp.Value{
 			Type: resp.Error,
@@ -404,4 +412,178 @@ func (h *CommandHandler) handleExpire(args []resp.Value) *resp.Value {
 		Type: resp.Integer,
 		Int:  result,
 	}
+}
+
+// handleDBSize 处理 DBSIZE 命令
+//
+// 格式：DBSIZE
+// 返回：数据库中键的数量
+func (h *CommandHandler) handleDBSize(args []resp.Value) *resp.Value {
+	if len(args) != 0 {
+		return &resp.Value{
+			Type: resp.Error,
+			Str:  "ERR DBSIZE 命令不需要参数",
+		}
+	}
+
+	size := h.sm.Len()
+
+	return &resp.Value{
+		Type: resp.Integer,
+		Int:  int64(size),
+	}
+}
+
+// handleFlushAll 处理 FLUSHALL 命令
+//
+// 格式：FLUSHALL
+// 返回：+OK
+func (h *CommandHandler) handleFlushAll(args []resp.Value) *resp.Value {
+	if len(args) != 0 {
+		return &resp.Value{
+			Type: resp.Error,
+			Str:  "ERR FLUSHALL 命令不需要参数",
+		}
+	}
+
+	h.sm.Clear()
+
+	return &resp.Value{
+		Type: resp.SimpleString,
+		Str:  "OK",
+	}
+}
+
+// handleKeys 处理 KEYS 命令
+//
+// 格式：KEYS pattern
+// 返回：匹配的键列表
+// 注意：这是一个简化实现，仅支持 * 通配符
+func (h *CommandHandler) handleKeys(args []resp.Value) *resp.Value {
+	if len(args) != 1 {
+		return &resp.Value{
+			Type: resp.Error,
+			Str:  "ERR KEYS 命令需要 1 个参数",
+		}
+	}
+
+	if args[0].Type != resp.BulkString {
+		return &resp.Value{
+			Type: resp.Error,
+			Str:  "ERR 模式必须是 Bulk String",
+		}
+	}
+
+	pattern := string(args[0].Bulk)
+
+	// 简化实现：仅支持 "*" 模式（返回所有键）
+	if pattern != "*" {
+		return &resp.Value{
+			Type: resp.Error,
+			Str:  "ERR 当前仅支持 KEYS * 模式",
+		}
+	}
+
+	// 获取所有键（简化实现）
+	keys := h.getAllKeys()
+
+	// 构建响应数组
+	result := make([]resp.Value, len(keys))
+	for i, key := range keys {
+		result[i] = resp.Value{
+			Type: resp.BulkString,
+			Bulk: []byte(key),
+		}
+	}
+
+	return &resp.Value{
+		Type:  resp.Array,
+		Array: result,
+	}
+}
+
+// handleInfo 处理 INFO 命令
+//
+// 格式：INFO [section]
+// 返回：服务器信息
+func (h *CommandHandler) handleInfo(args []resp.Value) *resp.Value {
+	section := "all"
+	if len(args) > 0 {
+		if args[0].Type != resp.BulkString {
+			return &resp.Value{
+				Type: resp.Error,
+				Str:  "ERR section 必须是 Bulk String",
+			}
+		}
+		section = strings.ToLower(string(args[0].Bulk))
+	}
+
+	info := h.buildInfoString(section)
+
+	return &resp.Value{
+		Type: resp.BulkString,
+		Bulk: []byte(info),
+	}
+}
+
+// getAllKeys 获取所有键（简化实现，仅用于 KEYS 命令）
+//
+// 注意：这是一个 O(n) 操作，在生产环境中应避免频繁使用
+func (h *CommandHandler) getAllKeys() []string {
+	keys := make([]string, 0, 100)
+
+	// 遍历所有分片收集键
+	// 注意：这里访问了 ShardedMap 的内部实现
+	// 在实际生产代码中，应该在 ShardedMap 中提供一个专门的方法
+	for i := 0; i < 256; i++ {
+		shard := h.sm.GetShardForIndex(i)
+		if shard == nil {
+			continue
+		}
+
+		shardKeys := shard.GetAllKeys()
+		keys = append(keys, shardKeys...)
+	}
+
+	return keys
+}
+
+// buildInfoString 构建 INFO 命令的响应字符串
+func (h *CommandHandler) buildInfoString(section string) string {
+	var info strings.Builder
+
+	if section == "all" || section == "server" {
+		info.WriteString("# Server\r\n")
+		info.WriteString("tokenginx_version:0.1.0-dev\r\n")
+		info.WriteString("tokenginx_mode:standalone\r\n")
+		info.WriteString("os:Linux\r\n")
+		info.WriteString("arch_bits:64\r\n")
+		info.WriteString("\r\n")
+	}
+
+	if section == "all" || section == "memory" {
+		info.WriteString("# Memory\r\n")
+		// 这里可以添加更详细的内存统计
+		info.WriteString("\r\n")
+	}
+
+	if section == "all" || section == "stats" {
+		info.WriteString("# Stats\r\n")
+		size := h.sm.Len()
+		info.WriteString(fmt.Sprintf("total_keys:%d\r\n", size))
+		info.WriteString("\r\n")
+	}
+
+	if section == "all" || section == "keyspace" {
+		info.WriteString("# Keyspace\r\n")
+		size := h.sm.Len()
+		info.WriteString(fmt.Sprintf("db0:keys=%d\r\n", size))
+		info.WriteString("\r\n")
+	}
+
+	if info.Len() == 0 {
+		return fmt.Sprintf("# %s section not supported\r\n", section)
+	}
+
+	return info.String()
 }
