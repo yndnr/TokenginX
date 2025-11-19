@@ -1,0 +1,158 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tokenginx
+  namespace: tokenginx
+  labels:
+    app: tokenginx
+    version: v0.1.0
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: tokenginx
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: tokenginx
+        version: v0.1.0
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9100"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: tokenginx
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+      - name: tokenginx
+        image: tokenginx/tokenginx:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: tcp-resp
+          containerPort: 6380
+          protocol: TCP
+        - name: grpc
+          containerPort: 9090
+          protocol: TCP
+        - name: http
+          containerPort: 8080
+          protocol: TCP
+        - name: metrics
+          containerPort: 9100
+          protocol: TCP
+        - name: health
+          containerPort: 8081
+          protocol: TCP
+        env:
+        - name: TOKENGINX_LOG_LEVEL
+          valueFrom:
+            configMapKeyRef:
+              name: tokenginx-config
+              key: log_level
+        - name: TOKENGINX_MASTER_KEY
+          valueFrom:
+            secretKeyRef:
+              name: tokenginx-secret
+              key: master_key
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        volumeMounts:
+        - name: config
+          mountPath: /etc/tokenginx
+          readOnly: true
+        - name: data
+          mountPath: /var/lib/tokenginx
+        - name: logs
+          mountPath: /var/log/tokenginx
+        - name: tls-certs
+          mountPath: /etc/tokenginx/certs
+          readOnly: true
+        resources:
+          requests:
+            cpu: 500m
+            memory: 512Mi
+          limits:
+            cpu: 2000m
+            memory: 2Gi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8081
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8081
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 8081
+          initialDelaySeconds: 0
+          periodSeconds: 2
+          timeoutSeconds: 3
+          failureThreshold: 30
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1000
+          capabilities:
+            drop:
+            - ALL
+            add:
+            - NET_BIND_SERVICE
+      volumes:
+      - name: config
+        configMap:
+          name: tokenginx-config
+          items:
+          - key: config.yaml
+            path: config.yaml
+      - name: data
+        persistentVolumeClaim:
+          claimName: tokenginx-data
+      - name: logs
+        emptyDir: {}
+      - name: tls-certs
+        secret:
+          secretName: tokenginx-tls
+          optional: true
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - tokenginx
+              topologyKey: kubernetes.io/hostname
+      terminationGracePeriodSeconds: 60

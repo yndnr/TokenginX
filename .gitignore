@@ -1,0 +1,62 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+bin/
+*.test
+*.out
+
+# Go workspace file
+go.work
+
+# Dependency directories
+vendor/
+
+# Test coverage
+*.coverprofile
+coverage.out
+coverage.html
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment and config files
+.env
+.env.local
+*.local.yaml
+*.local.yml
+
+# Log files
+*.log
+logs/
+
+# Data and cache
+data/
+*.db
+*.sqlite
+*.mmap
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Build artifacts
+dist/
+build/
+*.tar.gz
+*.zip
+
+# Debug files
+debug
+__debug_bin
+
+# OS specific
+Thumbs.db

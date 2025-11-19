@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: tokenginx
+  labels:
+    name: tokenginx
+    app.kubernetes.io/name: tokenginx
+    app.kubernetes.io/component: session-storage

@@ -1,0 +1,444 @@
+# TokenginX 配置文件示例
+# 复制此文件为 config.yaml 并根据需要修改
+
+# 服务器配置
+server:
+  # TCP (RESP) 地址
+  tcp_addr: "0.0.0.0:6380"
+
+  # gRPC 地址
+  grpc_addr: "0.0.0.0:9090"
+
+  # HTTP/REST 地址
+  http_addr: "0.0.0.0:8080"
+
+  # 读取超时（秒）
+  read_timeout: 30
+
+  # 写入超时（秒）
+  write_timeout: 30
+
+  # 空闲超时（秒）
+  idle_timeout: 120
+
+  # 最大并发连接数
+  max_connections: 10000
+
+# 存储配置
+storage:
+  # 分片数量（推荐 256）
+  shard_count: 256
+
+  # 每个分片的初始容量
+  initial_capacity: 4096
+
+  # 启用持久化
+  enable_persistence: false
+
+  # 数据目录
+  data_dir: "/var/lib/tokenginx"
+
+  # 持久化配置
+  persistence:
+    # mmap 文件大小（MB）
+    mmap_size_mb: 1024
+
+    # WAL 日志
+    wal:
+      enabled: true
+      # WAL 文件路径
+      dir: "/var/lib/tokenginx/wal"
+      # WAL 文件大小（MB）
+      max_size_mb: 64
+      # 同步策略：always | everysec | no
+      sync_policy: "everysec"
+
+    # 数据压缩
+    compression:
+      enabled: false
+      # 压缩算法：lz4 | snappy
+      algorithm: "lz4"
+
+    # 加密（可选）
+    encryption:
+      enabled: false
+      algorithm: "aes-256-gcm"  # aes-256-gcm | sm4-gcm
+
+# 缓存配置
+cache:
+  # 缓存算法：w-tinylfu | lru | lfu
+  algorithm: "w-tinylfu"
+
+  # 最大内存（MB）
+  max_memory_mb: 1024
+
+  # 淘汰策略：lru | lfu | random
+  eviction_policy: "lru"
+
+  # 缓存统计
+  enable_stats: true
+
+# TTL 配置
+ttl:
+  # 启用 TTL
+  enabled: true
+
+  # 默认 TTL（秒，0 表示永不过期）
+  default_ttl: 0
+
+  # 定期清理间隔（秒）
+  cleanup_interval: 60
+
+  # 每次清理的最大数量
+  cleanup_batch_size: 1000
+
+# 安全配置
+security:
+  # 加密模式：auto | gm | sm | hybrid
+  # auto: 根据客户端能力自动选择
+  # gm: 仅国密
+  # sm: 仅商密
+  # hybrid: 国密和商密混合
+  crypto_mode: "auto"
+
+  # TLS 配置
+  tls:
+    # 启用 TLS
+    enabled: false
+
+    # TLS 版本：1.2 | 1.3 | tlcp-1.1 | gm-tls-1.3
+    version: "1.3"
+
+    # 商密证书
+    cert_file: "/path/to/cert.pem"
+    key_file: "/path/to/key.pem"
+
+    # 国密签名证书
+    gm_sign_cert: "/path/to/sm2_sign.pem"
+    gm_sign_key: "/path/to/sm2_sign_key.pem"
+
+    # 国密加密证书
+    gm_enc_cert: "/path/to/sm2_enc.pem"
+    gm_enc_key: "/path/to/sm2_enc_key.pem"
+
+    # CA 证书（用于验证客户端证书）
+    ca_file: "/path/to/ca.pem"
+
+    # 客户端认证模式：none | request | require
+    client_auth: "none"
+
+    # 密码套件（可选，留空使用默认安全套件）
+    cipher_suites:
+      # 国密套件
+      # - "ECDHE_SM4_GCM_SM3"
+      # - "ECC_SM4_GCM_SM3"
+      # 商密套件
+      # - "TLS_AES_256_GCM_SHA384"
+      # - "TLS_CHACHA20_POLY1305_SHA256"
+      # - "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384"
+
+  # 数据加密
+  encryption:
+    # 启用数据加密
+    enabled: false
+
+    # 加密算法：aes-256-gcm | sm4-gcm | auto
+    algorithm: "auto"
+
+    # 主密钥来源：env | kms | file | hsm
+    master_key_source: "env"
+
+    # 主密钥文件路径（当 master_key_source=file 时）
+    master_key_file: "/secure/path/master.key"
+
+    # KMS 配置（当 master_key_source=kms 时）
+    kms:
+      provider: "aliyun"  # aliyun | tencent | huawei | aws
+      region: "cn-beijing"
+      key_id: "your-kms-key-id"
+      # 访问凭证（建议使用环境变量）
+      access_key_id: "${KMS_ACCESS_KEY_ID}"
+      access_key_secret: "${KMS_ACCESS_KEY_SECRET}"
+
+    # HSM 配置（当 master_key_source=hsm 时，企业版）
+    hsm:
+      provider: "sansec"
+      device_path: "/dev/tass0"
+      key_label: "tokenginx-master-key"
+      pin: "${HSM_PIN}"
+
+    # 密钥轮换
+    key_rotation_days: 90
+    key_retention_count: 3
+
+  # 防重放攻击
+  anti_replay:
+    # 启用防重放
+    enabled: false
+
+    # 时间窗口（秒）
+    window_seconds: 300
+
+    # 时钟偏移容忍（秒）
+    clock_skew_seconds: 30
+
+    # Nonce 配置
+    nonce_cache_size: 100000
+    nonce_cache_backend: "memory"  # memory | redis
+
+    # Redis 配置（当 nonce_cache_backend=redis 时）
+    redis:
+      addr: "localhost:6379"
+      password: ""
+      db: 0
+      key_prefix: "tokenginx:nonce:"
+
+    # 签名验证
+    require_signature: false
+    signature_algorithm: "hmac-sha256"  # hmac-sha256 | hmac-sm3
+
+    # 序列号（可选）
+    enable_sequence: false
+    sequence_tolerance: 10
+
+    # 审计被拒绝的请求
+    log_rejected_requests: true
+
+  # 访问控制列表（ACL）
+  acl:
+    # 启用 ACL
+    enabled: false
+
+    # 默认拒绝策略
+    default_deny: true
+
+    # ACL 规则文件
+    rules_file: "/etc/tokenginx/acl.yaml"
+
+    # 审计被拒绝的请求
+    audit_denied: true
+
+    # ACL 决策缓存
+    cache:
+      enabled: true
+      ttl_seconds: 60
+      max_entries: 10000
+
+  # 审计日志
+  audit:
+    # 启用审计
+    enabled: false
+
+    # 日志格式：json | text
+    format: "json"
+
+    # 日志输出：file | syslog | stdout
+    output: "file"
+
+    # 日志文件路径（当 output=file 时）
+    file_path: "/var/log/tokenginx/audit.log"
+
+    # 日志轮转
+    rotation:
+      # 最大文件大小（MB）
+      max_size_mb: 100
+      # 保留的文件数量
+      max_backups: 10
+      # 保留天数
+      max_age_days: 30
+      # 是否压缩
+      compress: true
+
+    # Syslog 配置（当 output=syslog 时）
+    syslog:
+      network: "udp"
+      address: "localhost:514"
+      tag: "tokenginx"
+
+    # 加密审计日志
+    encrypt_log: false
+
+    # 记录的事件类型
+    event_types:
+      - "authentication"
+      - "authorization"
+      - "data_access"
+      - "configuration_change"
+      - "security_event"
+
+  # 速率限制
+  rate_limit:
+    # 启用速率限制
+    enabled: false
+
+    # 全局限流（QPS）
+    global_qps: 100000
+
+    # 单用户限流（QPS）
+    per_user_qps: 10000
+
+    # 单 IP 限流（QPS）
+    per_ip_qps: 5000
+
+    # 单命令限流（QPS）
+    per_command:
+      SET: 50000
+      GET: 100000
+      DELETE: 20000
+
+    # 限流算法：token_bucket | sliding_window
+    algorithm: "token_bucket"
+
+    # 限流响应
+    response:
+      # HTTP 状态码
+      http_status: 429
+      # 错误消息
+      message: "Rate limit exceeded"
+
+# 协议配置
+protocols:
+  # OAuth 2.0/OIDC
+  oauth:
+    # 启用 OAuth
+    enabled: true
+
+    # 默认 Access Token TTL（秒）
+    default_token_ttl: 3600
+
+    # 默认 Refresh Token TTL（秒）
+    default_refresh_token_ttl: 2592000  # 30 天
+
+    # 默认 Authorization Code TTL（秒）
+    default_code_ttl: 300  # 5 分钟
+
+    # Token 键前缀
+    key_prefix: "oauth"
+
+  # SAML 2.0
+  saml:
+    # 启用 SAML
+    enabled: false
+
+    # 默认 Assertion TTL（秒）
+    default_assertion_ttl: 1800  # 30 分钟
+
+    # 默认 Session TTL（秒）
+    default_session_ttl: 28800  # 8 小时
+
+    # Assertion 键前缀
+    key_prefix: "saml"
+
+  # CAS
+  cas:
+    # 启用 CAS
+    enabled: false
+
+    # 默认 TGT TTL（秒）
+    default_tgt_ttl: 7200  # 2 小时
+
+    # 默认 ST TTL（秒）
+    default_st_ttl: 300  # 5 分钟
+
+    # 默认 PT TTL（秒）
+    default_pt_ttl: 300  # 5 分钟
+
+    # Ticket 键前缀
+    key_prefix: "cas"
+
+# 监控配置
+monitoring:
+  # Prometheus metrics
+  prometheus:
+    # 启用 Prometheus
+    enabled: false
+
+    # Metrics 端点地址
+    addr: "0.0.0.0:9100"
+
+    # Metrics 路径
+    path: "/metrics"
+
+  # 健康检查
+  health_check:
+    # 启用健康检查
+    enabled: true
+
+    # 健康检查端点地址
+    addr: "0.0.0.0:8081"
+
+    # 健康检查路径
+    path: "/health"
+
+  # 性能分析
+  pprof:
+    # 启用 pprof
+    enabled: false
+
+    # pprof 端点地址
+    addr: "localhost:6060"
+
+# 日志配置
+logging:
+  # 日志级别：debug | info | warn | error
+  level: "info"
+
+  # 日志格式：json | text
+  format: "json"
+
+  # 日志输出：stdout | file
+  output: "stdout"
+
+  # 日志文件路径（当 output=file 时）
+  file_path: "/var/log/tokenginx/tokenginx.log"
+
+  # 日志轮转
+  rotation:
+    max_size_mb: 100
+    max_backups: 10
+    max_age_days: 30
+    compress: true
+
+  # 启用调试的模块（可选）
+  modules:
+    # - "storage"
+    # - "transport"
+    # - "protocol"
+    # - "security"
+    # - "gm.tls"
+    # - "acl"
+    # - "anti_replay"
+
+# 集群配置（v2.0.0+）
+cluster:
+  # 启用集群模式
+  enabled: false
+
+  # 节点 ID（唯一标识）
+  node_id: "node1"
+
+  # Gossip 配置
+  gossip:
+    # 绑定地址
+    bind_addr: "0.0.0.0:7946"
+
+    # 初始节点列表
+    seed_nodes:
+      - "10.0.0.1:7946"
+      - "10.0.0.2:7946"
+
+  # 副本配置
+  replication:
+    # 副本数量
+    replicas: 3
+
+    # 法定人数
+    quorum: 2
+
+  # 分片配置
+  sharding:
+    # 启用分片
+    enabled: true
+
+    # 虚拟节点数量
+    virtual_nodes: 256
